@@ -1,0 +1,742 @@
+{
+	"info": {
+		"_postman_id": "6f1c2a54-3b8e-4d57-9a41-5e2d7b9c0a11",
+		"name": "MiniShop API - contract tests",
+		"description": "Contract tests for the hypothetical MiniShop backend (QA take-home, Part B).\n\nEvery request has the contract payload saved as an Example, and a Tests script (pm.test) that checks status code, required fields, data types and business rules.\n\nHow to run (no live server exists):\n1. Local mock (recommended): in api-testing/mock-server/ run `npm install` then `npm test`. This starts a small mock that serves these saved examples and runs this collection with Newman.\n2. Postman mock server: Collection > ... > Mock collection, then set the baseUrl collection variable to the mock URL and use Run collection. The x-mock-response-name header on each request picks the matching example.\n\nRun order matters for the chained checks: GET /products, then POST 201 (saves orderId), then GET /orders/{orderId}.\n\nContract review notes for the API developer: see api-testing/api-contract-review.pdf.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"event": [
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Runs after EVERY request in the collection.",
+					"pm.test('[contract] Content-Type is application/json', function () {",
+					"    pm.response.to.have.header('Content-Type');",
+					"    pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json');",
+					"});",
+					"",
+					"pm.test('[contract] Body is valid JSON', function () {",
+					"    pm.response.to.be.json;",
+					"});"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:3000",
+			"type": "string"
+		},
+		{
+			"key": "orderId",
+			"value": "ORD-1042",
+			"type": "string"
+		},
+		{
+			"key": "expectedCatalogue",
+			"value": "[{\"id\":1,\"name\":\"Wireless Mouse\",\"price\":19.99,\"inStock\":true},{\"id\":2,\"name\":\"Mechanical Keyboard\",\"price\":49.99,\"inStock\":true},{\"id\":3,\"name\":\"USB-C Hub\",\"price\":24.99,\"inStock\":false}]",
+			"type": "string"
+		},
+		{
+			"key": "createdOrder",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "Products",
+			"item": [
+				{
+					"name": "GET /products - list products (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const body = pm.response.json();",
+									"const expectedCatalogue = JSON.parse(pm.collectionVariables.get('expectedCatalogue'));",
+									"",
+									"pm.test('Status is 200 OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Body is a non-empty array', function () {",
+									"    pm.expect(body).to.be.an('array').that.is.not.empty;",
+									"});",
+									"",
+									"pm.test('Every product has the required fields: id, name, price, inStock', function () {",
+									"    body.forEach(function (p, i) {",
+									"        pm.expect(p, 'product[' + i + ']').to.include.all.keys('id', 'name', 'price', 'inStock');",
+									"    });",
+									"});",
+									"",
+									"pm.test('Field types: id integer, name non-empty string, price number, inStock boolean', function () {",
+									"    body.forEach(function (p) {",
+									"        pm.expect(Number.isInteger(p.id), 'id of ' + p.name + ' is an integer').to.be.true;",
+									"        pm.expect(p.name, 'name of product ' + p.id).to.be.a('string').that.is.not.empty;",
+									"        pm.expect(p.price, 'price of ' + p.name).to.be.a('number');",
+									"        pm.expect(p.inStock, 'inStock of ' + p.name).to.be.a('boolean');",
+									"    });",
+									"});",
+									"",
+									"pm.test('Body matches the product JSON schema', function () {",
+									"    pm.response.to.have.jsonSchema({",
+									"        type: 'array',",
+									"        minItems: 1,",
+									"        items: {",
+									"            type: 'object',",
+									"            required: ['id', 'name', 'price', 'inStock'],",
+									"            properties: {",
+									"                id: { type: 'integer', minimum: 1 },",
+									"                name: { type: 'string', minLength: 1 },",
+									"                price: { type: 'number', minimum: 0 },",
+									"                inStock: { type: 'boolean' }",
+									"            }",
+									"        }",
+									"    });",
+									"});",
+									"",
+									"pm.test('Product ids are unique', function () {",
+									"    const ids = body.map(function (p) { return p.id; });",
+									"    pm.expect(new Set(ids).size).to.equal(ids.length);",
+									"});",
+									"",
+									"pm.test('Prices are positive with at most 2 decimal places', function () {",
+									"    body.forEach(function (p) {",
+									"        pm.expect(p.price, p.name).to.be.above(0);",
+									"        pm.expect(Math.round(p.price * 100) / 100, p.name + ' has more than 2 decimals').to.equal(p.price);",
+									"    });",
+									"});",
+									"",
+									"pm.test('Catalogue matches the contract / MiniShop v1 UI (names, prices, stock)', function () {",
+									"    pm.expect(body).to.deep.equal(expectedCatalogue);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "x-mock-response-name",
+								"value": "200 OK - product list",
+								"description": "Selects the saved example on a Postman mock server (and on the local mock in api-testing/mock-server/). Harmless against a real backend."
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/products",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"products"
+							]
+						},
+						"description": "Returns the product catalogue. Tests check the shape and types of every product, and that the catalogue matches the contract data (and the MiniShop v1 UI)."
+					},
+					"response": [
+						{
+							"name": "200 OK - product list",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/products",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"products"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "[\n  {\n    \"id\": 1,\n    \"name\": \"Wireless Mouse\",\n    \"price\": 19.99,\n    \"inStock\": true\n  },\n  {\n    \"id\": 2,\n    \"name\": \"Mechanical Keyboard\",\n    \"price\": 49.99,\n    \"inStock\": true\n  },\n  {\n    \"id\": 3,\n    \"name\": \"USB-C Hub\",\n    \"price\": 24.99,\n    \"inStock\": false\n  }\n]"
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Orders",
+			"item": [
+				{
+					"name": "POST /orders - create order (201)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const body = pm.response.json();",
+									"const sent = JSON.parse(pm.request.body.raw);",
+									"const catalogue = JSON.parse(pm.collectionVariables.get('expectedCatalogue'));",
+									"",
+									"pm.test('Status is 201 Created', function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test('Required fields present: orderId, status, total, estimatedDelivery', function () {",
+									"    pm.expect(body).to.include.all.keys('orderId', 'status', 'total', 'estimatedDelivery');",
+									"});",
+									"",
+									"pm.test('orderId is a string in the ORD-<number> format', function () {",
+									"    pm.expect(body.orderId).to.be.a('string');",
+									"    pm.expect(body.orderId).to.match(/^ORD-\\d+$/);",
+									"});",
+									"",
+									"pm.test('status is the string \"confirmed\"', function () {",
+									"    pm.expect(body.status).to.be.a('string');",
+									"    pm.expect(body.status).to.equal('confirmed');",
+									"});",
+									"",
+									"pm.test('total is a positive number with at most 2 decimal places', function () {",
+									"    pm.expect(body.total).to.be.a('number').and.to.be.above(0);",
+									"    pm.expect(Math.round(body.total * 100) / 100).to.equal(body.total);",
+									"});",
+									"",
+									"pm.test('total equals the sum of price x quantity for the ordered items', function () {",
+									"    // Calculated in integer cents so floating-point error cannot hide a wrong total.",
+									"    const expectedCents = sent.items.reduce(function (sum, item) {",
+									"        const product = catalogue.find(function (p) { return p.id === item.productId; });",
+									"        pm.expect(product, 'productId ' + item.productId + ' exists in the catalogue').to.exist;",
+									"        return sum + Math.round(product.price * 100) * item.quantity;",
+									"    }, 0);",
+									"    pm.expect(Math.round(body.total * 100)).to.equal(expectedCents);",
+									"});",
+									"",
+									"pm.test('estimatedDelivery is a real calendar date in YYYY-MM-DD format', function () {",
+									"    pm.expect(body.estimatedDelivery).to.be.a('string').and.match(/^\\d{4}-\\d{2}-\\d{2}$/);",
+									"    const parsed = new Date(body.estimatedDelivery + 'T00:00:00Z');",
+									"    pm.expect(isNaN(parsed.getTime()), 'date parses').to.be.false;",
+									"    pm.expect(parsed.toISOString().slice(0, 10), 'no rollover such as 2026-02-30').to.equal(body.estimatedDelivery);",
+									"});",
+									"",
+									"pm.test('Success response carries no error property', function () {",
+									"    pm.expect(body).to.not.have.property('error');",
+									"});",
+									"",
+									"// Hand-off to GET /orders/{orderId}",
+									"pm.collectionVariables.set('orderId', body.orderId);",
+									"pm.collectionVariables.set('createdOrder', JSON.stringify({ orderId: body.orderId, status: body.status, total: body.total, items: sent.items }));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "x-mock-response-name",
+								"value": "201 Created - order confirmed",
+								"description": "Selects the saved example on a Postman mock server (and on the local mock in api-testing/mock-server/). Harmless against a real backend."
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/orders",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"orders"
+							]
+						},
+						"description": "Happy path: a valid order for in-stock items. Saves orderId / status / total / items so GET /orders/{orderId} can check it gets the same order back.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"items\": [\n    {\n      \"productId\": 1,\n      \"quantity\": 2\n    }\n  ],\n  \"customerEmail\": \"jane@example.com\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": [
+						{
+							"name": "201 Created - order confirmed",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/orders",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"orders"
+									]
+								},
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"items\": [\n    {\n      \"productId\": 1,\n      \"quantity\": 2\n    }\n  ],\n  \"customerEmail\": \"jane@example.com\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"orderId\": \"ORD-1042\",\n  \"status\": \"confirmed\",\n  \"total\": 39.98,\n  \"estimatedDelivery\": \"2026-08-02\"\n}"
+						}
+					]
+				},
+				{
+					"name": "POST /orders - missing customerEmail (400)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const body = pm.response.json();",
+									"",
+									"pm.test('Precondition: the request body really omits customerEmail', function () {",
+									"    pm.expect(JSON.parse(pm.request.body.raw)).to.not.have.property('customerEmail');",
+									"});",
+									"",
+									"pm.test('Status is 400 Bad Request', function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"pm.test('Error body has a non-empty string \"error\" field', function () {",
+									"    pm.expect(body).to.have.property('error');",
+									"    pm.expect(body.error).to.be.a('string').that.is.not.empty;",
+									"});",
+									"",
+									"pm.test('Error message names the missing field', function () {",
+									"    pm.expect(body.error).to.equal('customerEmail is required');",
+									"});",
+									"",
+									"pm.test('No order is created (no order fields in the error body)', function () {",
+									"    pm.expect(body).to.not.have.any.keys('orderId', 'status', 'total', 'estimatedDelivery');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "x-mock-response-name",
+								"value": "400 Bad Request - customerEmail missing",
+								"description": "Selects the saved example on a Postman mock server (and on the local mock in api-testing/mock-server/). Harmless against a real backend."
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/orders",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"orders"
+							]
+						},
+						"description": "Negative: the required customerEmail field is left out of the body.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"items\": [\n    {\n      \"productId\": 1,\n      \"quantity\": 2\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": [
+						{
+							"name": "400 Bad Request - customerEmail missing",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/orders",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"orders"
+									]
+								},
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"items\": [\n    {\n      \"productId\": 1,\n      \"quantity\": 2\n    }\n  ]\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"error\": \"customerEmail is required\"\n}"
+						}
+					]
+				},
+				{
+					"name": "POST /orders - out-of-stock item (409)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const body = pm.response.json();",
+									"const sent = JSON.parse(pm.request.body.raw);",
+									"const catalogue = JSON.parse(pm.collectionVariables.get('expectedCatalogue'));",
+									"const product = catalogue.find(function (p) { return p.id === sent.items[0].productId; });",
+									"",
+									"pm.test('Precondition: the ordered product is out of stock in the catalogue', function () {",
+									"    pm.expect(product, 'product exists').to.exist;",
+									"    pm.expect(product.inStock).to.equal(false);",
+									"});",
+									"",
+									"pm.test('Status is 409 Conflict', function () {",
+									"    pm.response.to.have.status(409);",
+									"});",
+									"",
+									"pm.test('Error body has a non-empty string \"error\" field', function () {",
+									"    pm.expect(body).to.have.property('error');",
+									"    pm.expect(body.error).to.be.a('string').that.is.not.empty;",
+									"});",
+									"",
+									"pm.test('Error message names the out-of-stock product', function () {",
+									"    pm.expect(body.error).to.equal(product.name + ' is currently out of stock');",
+									"});",
+									"",
+									"pm.test('No order is created (no order fields in the error body)', function () {",
+									"    pm.expect(body).to.not.have.any.keys('orderId', 'status', 'total', 'estimatedDelivery');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "x-mock-response-name",
+								"value": "409 Conflict - item out of stock",
+								"description": "Selects the saved example on a Postman mock server (and on the local mock in api-testing/mock-server/). Harmless against a real backend."
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/orders",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"orders"
+							]
+						},
+						"description": "Negative: orders productId 3 (USB-C Hub), which GET /products reports as inStock: false.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"items\": [\n    {\n      \"productId\": 3,\n      \"quantity\": 1\n    }\n  ],\n  \"customerEmail\": \"jane@example.com\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": [
+						{
+							"name": "409 Conflict - item out of stock",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/orders",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"orders"
+									]
+								},
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"items\": [\n    {\n      \"productId\": 3,\n      \"quantity\": 1\n    }\n  ],\n  \"customerEmail\": \"jane@example.com\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								}
+							},
+							"status": "Conflict",
+							"code": 409,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"error\": \"USB-C Hub is currently out of stock\"\n}"
+						}
+					]
+				},
+				{
+					"name": "GET /orders/{orderId} - existing order (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const body = pm.response.json();",
+									"const requestedId = pm.request.url.path[pm.request.url.path.length - 1];",
+									"const catalogue = JSON.parse(pm.collectionVariables.get('expectedCatalogue'));",
+									"const created = pm.collectionVariables.get('createdOrder');",
+									"",
+									"pm.test('Status is 200 OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Required fields present: orderId, status, items, total', function () {",
+									"    pm.expect(body).to.include.all.keys('orderId', 'status', 'items', 'total');",
+									"});",
+									"",
+									"pm.test('Field types: orderId string, status string, items array, total number', function () {",
+									"    pm.expect(body.orderId).to.be.a('string');",
+									"    pm.expect(body.status).to.be.a('string');",
+									"    pm.expect(body.items).to.be.an('array').that.is.not.empty;",
+									"    pm.expect(body.total).to.be.a('number');",
+									"});",
+									"",
+									"pm.test('Each item has an integer productId and a positive integer quantity', function () {",
+									"    body.items.forEach(function (item, i) {",
+									"        pm.expect(Number.isInteger(item.productId), 'items[' + i + '].productId is an integer').to.be.true;",
+									"        pm.expect(Number.isInteger(item.quantity), 'items[' + i + '].quantity is an integer').to.be.true;",
+									"        pm.expect(item.quantity, 'items[' + i + '].quantity').to.be.at.least(1);",
+									"    });",
+									"});",
+									"",
+									"pm.test('Returned orderId matches the one requested in the URL', function () {",
+									"    pm.expect(body.orderId).to.equal(requestedId);",
+									"});",
+									"",
+									"pm.test('total equals the sum of price x quantity for the returned items', function () {",
+									"    const expectedCents = body.items.reduce(function (sum, item) {",
+									"        const product = catalogue.find(function (p) { return p.id === item.productId; });",
+									"        pm.expect(product, 'productId ' + item.productId + ' exists in the catalogue').to.exist;",
+									"        return sum + Math.round(product.price * 100) * item.quantity;",
+									"    }, 0);",
+									"    pm.expect(Math.round(body.total * 100)).to.equal(expectedCents);",
+									"});",
+									"",
+									"// Only meaningful when POST /orders ran earlier in the same run.",
+									"(created ? pm.test : pm.test.skip)('Order matches what POST /orders created (orderId, status, total, items)', function () {",
+									"    const c = JSON.parse(created);",
+									"    pm.expect(body.orderId).to.equal(c.orderId);",
+									"    pm.expect(body.status).to.equal(c.status);",
+									"    pm.expect(body.total).to.equal(c.total);",
+									"    pm.expect(body.items).to.deep.equal(c.items);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "x-mock-response-name",
+								"value": "200 OK - order found",
+								"description": "Selects the saved example on a Postman mock server (and on the local mock in api-testing/mock-server/). Harmless against a real backend."
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/orders/{{orderId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"orders",
+								"{{orderId}}"
+							]
+						},
+						"description": "Fetches the order created by POST /orders. orderId comes from the collection variable (defaults to ORD-1042 when this request runs on its own)."
+					},
+					"response": [
+						{
+							"name": "200 OK - order found",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/orders/ORD-1042",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"orders",
+										"ORD-1042"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"orderId\": \"ORD-1042\",\n  \"status\": \"confirmed\",\n  \"items\": [\n    {\n      \"productId\": 1,\n      \"quantity\": 2\n    }\n  ],\n  \"total\": 39.98\n}"
+						}
+					]
+				},
+				{
+					"name": "GET /orders/{orderId} - unknown order (404)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const body = pm.response.json();",
+									"",
+									"pm.test('Status is 404 Not Found', function () {",
+									"    pm.response.to.have.status(404);",
+									"});",
+									"",
+									"pm.test('Error body has a non-empty string \"error\" field', function () {",
+									"    pm.expect(body).to.have.property('error');",
+									"    pm.expect(body.error).to.be.a('string').that.is.not.empty;",
+									"});",
+									"",
+									"pm.test('Error message is \"Order not found\"', function () {",
+									"    pm.expect(body.error).to.equal('Order not found');",
+									"});",
+									"",
+									"pm.test('No order data is leaked in the error body', function () {",
+									"    pm.expect(body).to.not.have.any.keys('orderId', 'status', 'items', 'total');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "x-mock-response-name",
+								"value": "404 Not Found - unknown order",
+								"description": "Selects the saved example on a Postman mock server (and on the local mock in api-testing/mock-server/). Harmless against a real backend."
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/orders/ORD-9999",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"orders",
+								"ORD-9999"
+							]
+						},
+						"description": "Negative: requests an orderId that does not exist."
+					},
+					"response": [
+						{
+							"name": "404 Not Found - unknown order",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/orders/ORD-9999",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"orders",
+										"ORD-9999"
+									]
+								}
+							},
+							"status": "Not Found",
+							"code": 404,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"error\": \"Order not found\"\n}"
+						}
+					]
+				}
+			]
+		}
+	]
+}

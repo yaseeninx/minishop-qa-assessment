@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>MiniShop</title>
+<style>
+body { font-family: sans-serif; max-width: 480px; margin: 40px auto; }
+.hidden { display: none; }
+.item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ccc; }
+#error { color: red; }
+#cart-count { background: #333; color: #fff; border-radius: 50%; padding: 2px 9px; font-size: 14px; }
+</style>
+</head>
+<body>
+<div id="login-screen">
+<h2>Login</h2>
+<input id="username" placeholder="Username" /><br/><br/>
+<input id="password" type="password" placeholder="Password" /><br/><br/>
+<button id="login-btn">Login</button>
+<p id="error"></p>
+</div>
+<div id="shop-screen" class="hidden">
+<h2>MiniShop <span id="cart-count">0</span></h2>
+<div class="item"><span>Wireless Mouse - $19.99</span>
+<button class="add-btn" data-name="Wireless Mouse" data-price="19.99">Add to Cart</button></div>
+<div class="item"><span>Mechanical Keyboard - $49.99</span>
+<button class="add-btn" data-name="Mechanical Keyboard" data-price="49.99">Add to Cart</button></div>
+<div class="item"><span>USB-C Hub - $24.99</span>
+<button class="add-btn" data-name="USB-C Hub" data-price="24.99">Add to Cart</button></div>
+<br/>
+<button id="checkout-btn">Checkout</button>
+<button id="logout-btn">Logout</button>
+</div>
+
+<div id="confirmation-screen" class="hidden">
+<h2>Order Confirmed</h2>
+<p id="order-summary"></p>
+<button id="back-btn">Back to Shop</button>
+</div>
+<script>
+var VALID_USER = "standard_user";
+var VALID_PASS = "secret123";
+var failedAttempts = 0;
+var locked = false;
+var cart = [];
+document.getElementById("login-btn").onclick = function () {
+var u = document.getElementById("username").value;
+var p = document.getElementById("password").value;
+var errorEl = document.getElementById("error");
+if (locked) {
+errorEl.textContent = "Account locked. Too many failed attempts.";
+return;
+}
+if (u === VALID_USER && p === VALID_PASS) {
+errorEl.textContent = "";
+document.getElementById("login-screen").classList.add("hidden");
+document.getElementById("shop-screen").classList.remove("hidden");
+} else {
+failedAttempts++;
+if (failedAttempts >= 3) {
+locked = true;
+errorEl.textContent = "Account locked. Too many failed attempts.";
+} else {
+errorEl.textContent = "Invalid username or password.";
+}
+}
+};
+var addButtons = document.querySelectorAll(".add-btn");
+for (var i = 0; i < addButtons.length; i++) {
+addButtons[i].onclick = function (e) {
+var btn = e.target;
+cart.push({ name: btn.dataset.name, price: parseFloat(btn.dataset.price) });
+document.getElementById("cart-count").textContent = cart.length;
+};
+}
+document.getElementById("checkout-btn").onclick = function () {
+if (cart.length === 0) {
+alert("Your cart is empty.");
+return;
+}
+var total = 0;
+for (var i = 0; i < cart.length; i++) { total += cart[i].price; }
+document.getElementById("order-summary").textContent =
+cart.length + " item(s), total $" + total.toFixed(2);
+document.getElementById("shop-screen").classList.add("hidden");
+document.getElementById("confirmation-screen").classList.remove("hidden");
+cart = [];
+document.getElementById("cart-count").textContent = "0";
+};
+document.getElementById("logout-btn").onclick = function () {
+document.getElementById("shop-screen").classList.add("hidden");
+document.getElementById("login-screen").classList.remove("hidden");
+document.getElementById("username").value = "";
+document.getElementById("password").value = "";
+};
+document.getElementById("back-btn").onclick = function () {
+document.getElementById("confirmation-screen").classList.add("hidden");
+document.getElementById("shop-screen").classList.remove("hidden");
+};
+</script>
+</body>
+</html>

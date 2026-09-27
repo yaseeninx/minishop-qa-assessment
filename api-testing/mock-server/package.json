@@ -1,0 +1,17 @@
+{
+  "name": "minishop-mock-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local mock of the MiniShop API (serves the collection's saved examples) + Newman runner",
+  "scripts": {
+    "mock": "node server.js",
+    "test": "node run-tests.js",
+    "test:against": "newman run ../api-tests.postman_collection.json --env-var baseUrl=$BASE_URL"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "newman": "^6.2.2"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "minishop-automation",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Playwright (POM) UI tests for MiniShop plus a Jest unit test for applyDiscount",
+  "scripts": {
+    "test": "playwright test --project=chromium",
+    "test:e2e": "playwright test --project=chromium",
+    "test:e2e:all-browsers": "playwright test",
+    "test:unit": "jest",
+    "test:all": "jest && playwright test --project=chromium",
+    "report": "playwright show-report"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "jest": "^30.5.2"
+  }
+}
